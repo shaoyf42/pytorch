@@ -3603,9 +3603,9 @@ def new_subgroups(
     pg_options=None,
 ):
     """
-    Creates GPU subgroups of equal size. By default, it creates intra-machine subgroups,
+    Creates GPU/custom_device subgroups of equal size. By default, it creates intra-machine subgroups,
     where each of which contains all the ranks of a machine, based on the assumption
-    that each machine has the same number of CUDA devices.
+    that each machine has the same number of CUDA/custom_device devices.
 
     This is a convenience API that calls ``new_group`` to generate multiple subgroups.
     It requires that all processes in the main group (i.e. all
@@ -3613,7 +3613,7 @@ def new_subgroups(
     if they are not going to be members of the group.
 
     .. warning::
-        This API only works when CUDA is available.
+        This API only works when CUDA or custom_device is available.
 
     .. warning::
         If ``group_size`` is passed in, the world size must be divisible by ``group_size``.
@@ -3686,11 +3686,24 @@ def new_subgroups(
         >>> for subgroup in subgroups:
         >>>     dist.destroy_process_group(subgroup)
     """
-    if not torch.cuda.is_available():
-        raise ValueError("Subgroups can only be created when CUDA is available")
+    custom_device_is_available = False
+    custom_device_backend_name = torch._C._get_privateuse1_backend_name()
+    if hasattr(torch, custom_device_backend_name):
+        custom_device_mod = getattr(torch, custom_device_backend_name)
+        _is_available_name = "is_available"
+        custom_device_is_available = getattr(custom_device_mod, _is_available_name)()
+
+    if not torch.cuda.is_available() or not custom_device_is_available:
+        raise ValueError("Subgroups can only be created when CUDA or custom device is available")
 
     if group_size is None:
-        group_size = torch.cuda.device_count()
+        if torch.cuda.is_available():
+            group_size = torch.cuda.device_count()
+        elif hasattr(custom_device_mod, "device_count"):
+            group_size = getattr(custom_device_mod, "device_count")()
+        else:
+            raise ValueError(f"`{custom_device_backend_name}` device should add API: `device_count` when group_size is None")
+
     world_size = get_world_size()
     if world_size < group_size:
         raise ValueError(f"The arg 'group_size' ({group_size}) must not exceed the world size ({world_size})")
@@ -3729,7 +3742,7 @@ def new_subgroups_by_enumeration(
     pg_options=None,
 ):
     """
-    Creates GPU subgroups by dividing the global world, where the division is specified by
+    Creates GPU/custom_device subgroups by dividing the global world, where the division is specified by
     a nested list of ranks. The subgroups cannot have overlap, and some ranks may not have
     to be in any subgroup.
 
@@ -3798,8 +3811,16 @@ def new_subgroups_by_enumeration(
         tensor([2])     # Subgroup 0: ranks 0 and 2
         tensor([4])     # Subgroup 1: ranks 1 and 3
     """
-    if not torch.cuda.is_available():
-        raise ValueError("Subgroups can only be created when CUDA is available")
+    custom_device_is_available = False
+    custom_device_backend_name = torch._C._get_privateuse1_backend_name()
+    if hasattr(torch, custom_device_backend_name):
+        custom_device_mod = getattr(torch, custom_device_backend_name)
+        _is_available_name = "is_available"
+        custom_device_is_available = getattr(custom_device_mod, _is_available_name)()
+
+    if not torch.cuda.is_available() or not custom_device_is_available:
+        raise ValueError("Subgroups can only be created when CUDA or custom device is available")
+
     if ranks_per_subgroup_list is None or len(ranks_per_subgroup_list) == 0:
         raise ValueError("The arg 'ranks_per_subgroup_list' cannot be empty")
 

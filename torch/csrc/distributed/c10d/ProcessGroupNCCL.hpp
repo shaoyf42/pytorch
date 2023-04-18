@@ -331,6 +331,10 @@ class TORCH_API ProcessGroupNCCL : public Backend {
       std::vector<at::Tensor>& tensors,
       const BroadcastOptions& opts = BroadcastOptions()) override;
 
+//   c10::intrusive_ptr<Work> broadcast_coalesced(
+//       std::vector<at::Tensor>& tensors,
+//       const BroadcastCoalescedOptions& opts = BroadcastCoalescedOptions()) override;
+
   c10::intrusive_ptr<Work> _broadcast_oop(
       std::vector<at::Tensor>& outputTensors,
       std::vector<at::Tensor>& inputTensors,

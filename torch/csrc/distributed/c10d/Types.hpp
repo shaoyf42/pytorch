@@ -116,6 +116,12 @@ struct BroadcastOptions {
   std::chrono::milliseconds timeout = kUnsetTimeout;
 };
 
+struct BroadcastCoalescedOptions {
+  int64_t bufferSize = 0;
+  int64_t rank = 0;
+  std::chrono::milliseconds timeout = kUnsetTimeout;
+};
+
 struct AllreduceOptions {
   ReduceOp reduceOp = ReduceOp::SUM;
   std::chrono::milliseconds timeout = kUnsetTimeout;

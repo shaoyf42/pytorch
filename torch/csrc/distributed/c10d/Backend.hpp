@@ -75,6 +75,14 @@ class TORCH_API Backend : public torch::CustomClassHolder {
         c10::str("Backend ", getBackendName(), "does not support broadcast"));
   }
 
+  virtual c10::intrusive_ptr<Work> broadcast_coalesced(
+      std::vector<at::Tensor>& /* tensors */,
+      const BroadcastCoalescedOptions& /* opts */ = BroadcastCoalescedOptions()) {
+    TORCH_CHECK(
+        false,
+        c10::str("Backend ", getBackendName(), "does not support broadcast"));
+  }
+
   virtual c10::intrusive_ptr<Work> allreduce(
       std::vector<at::Tensor>& /* tensors */,
       const AllreduceOptions& /* opts */ = AllreduceOptions()) {

@@ -3,6 +3,7 @@
 #include <torch/csrc/distributed/c10d/ProcessGroup.hpp>
 #include <torch/csrc/distributed/c10d/Types.hpp>
 #include <torch/library.h>
+#include <torch/csrc/distributed/c10d/comm.hpp>
 
 namespace c10d {
 namespace {
@@ -18,6 +19,8 @@ TORCH_LIBRARY(c10d, m) {
   m.class_<ReduceOp>("ReduceOp").def(torch::init<>());
   m.def(
       "broadcast_(Tensor[] tensors, __torch__.torch.classes.c10d.ProcessGroup process_group, int root_rank, int root_tensor, int timeout) -> (Tensor[], __torch__.torch.classes.c10d.Work)");
+  m.def(
+      "broadcast_coalesced_(Tensor[] tensors, __torch__.torch.classes.c10d.ProcessGroup process_group, size_t buffer_size, int rank, int timeout) -> ()");
   m.def(
       "allreduce_(Tensor[] tensors, __torch__.torch.classes.c10d.ProcessGroup process_group, __torch__.torch.classes.c10d.ReduceOp reduce_op, int timeout) -> (Tensor[], __torch__.torch.classes.c10d.Work)");
   m.def(
@@ -573,6 +576,36 @@ void monitored_barrier_cpu_(
           wait_all_ranks);
 }
 
+void broadcast_coalesced_comm_(
+    at::Tensor /* unused */,
+    const c10::intrusive_ptr<::c10d::ProcessGroup>& process_group,
+    const std::vector<int64_t>& device_ids,
+    int64_t timeout,
+    bool wait_all_ranks) {
+  process_group->getBackend(c10::DeviceType::CPU)
+      ->monitoredBarrier(
+          BarrierOptions{device_ids, std::chrono::milliseconds(timeout)},
+          wait_all_ranks);
+}
+
+
+void broadcast_coalesced_comm_(
+    at::TensorList tensors,
+    const c10::intrusive_ptr<ProcessGroup>& process_group,
+    int64_t buffer_size,
+    int64_t rank,
+    int64_t timeout) {
+  // auto tensor_vec = tensors.vec();
+  // auto work =
+  //     process_group->getBackend(c10::DeviceType::CPU)
+  //         ->broadcast(
+  //             tensor_vec,
+  //             BroadcastOptions{
+  //                 root_rank, root_tensor, std::chrono::milliseconds(timeout)});
+  broadcast_coalesced(process_group, tensors, buffer_size, rank);
+  return;
+}
+
 // register functions to dispatcher
 namespace {
 TORCH_LIBRARY_IMPL(c10d, CPU, m) {
@@ -723,6 +756,10 @@ TORCH_LIBRARY_IMPL(c10d, CUDA, m) {
 
 TORCH_LIBRARY_IMPL(c10d, CPU, m) {
   m.impl("monitored_barrier_", monitored_barrier_cpu_);
+}
+
+TORCH_LIBRARY_IMPL(c10d, m) {
+  m.impl("broadcast_coalesced_", broadcast_coalesced_comm_);
 }
 
 } // namespace

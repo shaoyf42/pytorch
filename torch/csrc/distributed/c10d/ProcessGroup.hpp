@@ -143,6 +143,30 @@ class TORCH_API ProcessGroup : public torch::CustomClassHolder {
         opts.timeout.count()));
   }
 
+  virtual c10::intrusive_ptr<Work> broadcast_coalesced_(
+      std::vector<at::Tensor>& tensors,
+      const BroadcastCoalescedOptions& opts = BroadcastCoalescedOptions()) {
+    static auto op =
+        c10::Dispatcher::singleton()
+            .findSchemaOrThrow("c10d::broadcast_coalesced_", "")
+            .typed<void(
+                    at::TensorList,
+                    const
+                    c10::intrusive_ptr<::c10d::ProcessGroup>&,
+                    int64_t,
+                    int64_t,
+                    int64_t)>();
+    // It's awakward to unbox the opts here and box them again in the custom C++
+    // op. But it's also complicated to make opts as a CustomClassHolder. Leave
+    // it as it is now.
+    return std::get<1>(op.call(
+        tensors,
+        c10::intrusive_ptr<ProcessGroup>::unsafe_reclaim_from_nonowning(this),
+        opts.bufferSize,
+        opts.rank,
+        opts.timeout.count()));
+  }
+
   virtual c10::intrusive_ptr<Work> allreduce(
       std::vector<at::Tensor>& tensors,
       const AllreduceOptions& opts = AllreduceOptions()) {

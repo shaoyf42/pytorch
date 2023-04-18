@@ -1823,6 +1823,15 @@ c10::intrusive_ptr<Work> ProcessGroupNCCL::broadcast(
       "nccl:broadcast");
 }
 
+// void ProcessGroupNCCL::broadcast_coalesced(
+//     std::vector<at::Tensor>& tensors,
+//     const BroadcastCoalescedOptions& opts) {
+//   check_gpu_tensors_different_devices(tensors);
+//   broadcast_coalesced()
+
+// }
+
+
 // _broadcast_oop adds an out-of-place broadcast in PGNCCL
 // Custom collectives may be implemented by coalescing broadcast operations
 // One use-case is implementing a vector all_gather (all_gather_v)

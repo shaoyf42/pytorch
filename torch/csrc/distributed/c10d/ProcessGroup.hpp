@@ -512,7 +512,12 @@ class TORCH_API ProcessGroup : public torch::CustomClassHolder {
       const BarrierOptions& opts = BarrierOptions()) {
     static at::Tensor tensor;
     // TODO: if nccl was specified then use it
-    if (backendType_ == c10d::ProcessGroup::BackendType::NCCL) {
+    auto device = opts.device;
+    if (device) {
+      tensor = at::empty(
+          {1},
+          at::TensorOptions().device(device).dtype(at::kByte));
+    } else (backendType_ == c10d::ProcessGroup::BackendType::NCCL) {
       // set cuda tensor
       tensor = at::empty(
           {1},

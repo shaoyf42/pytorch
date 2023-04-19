@@ -3349,7 +3349,7 @@ def all_to_all(output_tensor_list, input_tensor_list, group=None, async_op=False
         work.wait()
 
 @exception_handler
-def barrier(group=GroupMember.WORLD, async_op=False, device_ids=None):
+def barrier(group=GroupMember.WORLD, async_op=False, device_ids=None, device=None):
 
     """
     Synchronizes all processes.
@@ -3373,10 +3373,11 @@ def barrier(group=GroupMember.WORLD, async_op=False, device_ids=None):
         return
 
     opts = BarrierOptions()
+    opts.device = device
     if device_ids is not None:
-        if get_backend(group) != Backend.NCCL:
+        if get_backend(group) != Backend.NCCL and device is None:
             raise RuntimeError(
-                f"Function argument device_ids not supported for the selected backend {get_backend(group)}"
+                f"Function argument device_ids not supported for the selected backend {get_backend(group)} default"
             )
         if isinstance(device_ids, list):
             opts.device_ids = device_ids

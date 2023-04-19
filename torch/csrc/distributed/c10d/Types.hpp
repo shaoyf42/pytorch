@@ -155,6 +155,7 @@ struct AllToAllOptions {
 
 struct BarrierOptions {
   std::vector<int64_t> device_ids;
+  c10::optional<at::Device> device;
   std::chrono::milliseconds timeout = kUnsetTimeout;
 };
 

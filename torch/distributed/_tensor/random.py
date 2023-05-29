@@ -32,7 +32,7 @@ def set_rng_state(new_state: Tensor, device_mesh: DeviceMesh) -> None:
 
     if device_mesh.get_coordinate() is not None:
         # the current rank is in mesh
-        
+
         if device_mesh._device_handle:
             device_mesh._device_handle.set_rng_state(new_state)
         else:

@@ -107,7 +107,9 @@ class DeviceMesh(object):
         _init_process_groups: bool = True,
     ) -> None:
         self.device_type = device_type
-        self._device_handle = getattr(torch, device_type, None) if device_type != "cpu" else None
+        self._device_handle = (
+            getattr(torch, device_type, None) if device_type != "cpu" else None
+        )
         self.mesh = (
             mesh.detach()
             if isinstance(mesh, torch.Tensor)

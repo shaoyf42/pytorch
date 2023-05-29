@@ -181,6 +181,11 @@ class Backend:
         MPI : ["cpu"],
     }
 
+    _default_backend_for_device: Dict[str, List[str]] = {
+        "cpu": GLOO,
+        "cuda": NCCL,
+    }
+
     def __new__(cls, name: str):
         if not isinstance(name, str):
             raise ValueError(f"Backend name must be a string, but got: {name}")
@@ -189,6 +194,13 @@ class Backend:
         if value != Backend.GLOO and value != Backend.NCCL and value != Backend.UCC and value != Backend.MPI:
             value = name.lower()
         return value
+
+    @classmethod
+    def get_default_backend_for_device(cls, device: str):
+        if device not in Backend._default_backend_for_device:
+            raise RuntimeError(f"Default backend not set for device type {device}, please set a default using \
+                            set_default_backend_for_device")
+        return Backend._default_backend_for_device[device]
 
     @classmethod
     def register_backend(cls, name, func, extended_api=False, devices: Optional[Union[str, List[str]]] = None):

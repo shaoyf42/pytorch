@@ -107,6 +107,7 @@ class DeviceMesh(object):
         _init_process_groups: bool = True,
     ) -> None:
         self.device_type = device_type
+        self._device_handle = getattr(torch, device_type, None) if device_type != "cpu" else None
         self.mesh = (
             mesh.detach()
             if isinstance(mesh, torch.Tensor)
@@ -120,7 +121,7 @@ class DeviceMesh(object):
             self._dim_groups = self._init_process_groups()
 
     def _get_or_create_default_group(self):
-        self._backend = Backend.GLOO if self.device_type == "cpu" else Backend.NCCL
+        self._backend = Backend.get_default_backend_for_device(self.device_type)
         default_initialized = is_initialized()
         if not default_initialized:
             init_process_group(backend=self._backend)
@@ -138,34 +139,33 @@ class DeviceMesh(object):
             assert (
                 world_backend in cpu_backends
             ), f"Default PG backend: {world_backend} not supporting CPU!"
-        elif self.device_type == "cuda":
-            cuda_backends = ["nccl", "gloo", "threaded"]
-            if world_backend == "gloo":
-                logger.warning(
-                    "We recommend using nccl backend for cuda device type, gloo backend might only have partial support!"
-                )
-            assert (
-                world_backend in cuda_backends
-            ), f"Default PG backend: {world_backend} not supporting CUDA!"
+        else:
+            if self.device_type == "cuda":
+                cuda_backends = ["nccl", "gloo", "threaded"]
+                if world_backend == "gloo":
+                    logger.warning(
+                        "We recommend using nccl backend for cuda device type, gloo backend might only have partial support!"
+                    )
+                assert (
+                    world_backend in cuda_backends
+                ), f"Default PG backend: {world_backend} not supporting CUDA!"
+            if self._device_handle is None:
+                raise RuntimeError(f"DeviceMesh don't support {self.device_type}")
             if not default_initialized:
                 # automatically set the current cuda device base on num of gpu devices available in each host
                 # NOTE: This device selection would only work for homogeneous hardware.
-                num_gpus_per_host = torch.cuda.device_count()
+                num_gpus_per_host = self._device_handle.device_count()
                 if world_size % num_gpus_per_host != 0:
                     raise RuntimeError(
                         f"DeviceMesh only support homogeneous hardware, but found "
-                        f"{world_size} ranks and {num_gpus_per_host} cuda devices!"
+                        f"{world_size} ranks and {num_gpus_per_host} devices!"
                     )
-                torch.cuda.set_device(get_rank() % num_gpus_per_host)
+                self._device_handle.set_device(get_rank() % num_gpus_per_host)
             # TODO (xilunwu): to perform DTensor random ops, we need to ensure all ranks in mesh is initialized
             # with the same random seed. The seed to use will be the current seed on rank 0. We store this seed
             # as an attribute of device mesh for future use. However, the detail is still TBD how we gonna use
             # this attribute, so we will implement this logic once we figure out the answer.
-            self._seed = torch.cuda.initial_seed()
-        else:
-            raise RuntimeError(
-                f"DeviceMesh only support cpu or cuda device type for now, but got {self.device_type}"
-            )
+            self._seed = self._device_handle.initial_seed()
 
         # calculate the coordinates of the current global rank on the mesh
         rank_coords = (self.mesh == get_rank()).nonzero()

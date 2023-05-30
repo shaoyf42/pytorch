@@ -477,9 +477,16 @@ class DeviceMesh(object):
             chunks = flat_tensor.chunk(group_size, dim=0)
             scatter_tensor = chunks[group_rank]
         else:
-            raise RuntimeError(
-                f"backend {self._backend} does not support reduce_scatter!"
-            )
+            try:
+                dim_group = self._dim_groups[mesh_dim]
+                scatter_tensor = funcol.reduce_scatter_tensor(
+                    input, reduceOp=op_name, scatter_dim=scatter_dim, group=dim_group
+                )
+            except RuntimeError as e:
+                print(
+                    f"DeviceMesh does not support all-to-all collective operations on {self._backend} backend."
+                )
+                raise e
 
         return scatter_tensor
 
@@ -523,7 +530,16 @@ class DeviceMesh(object):
                 async_op=async_op,
             )
         else:
-            raise RuntimeError(
-                f"DeviceMesh does not support all-to-all collective operations on {self._backend} backend."
-            )
+            try:
+                work = all_to_all(
+                    output_tensor_list,
+                    input_tensor_list,
+                    dim_group,
+                    async_op=async_op,
+                )
+            except RuntimeError as e:
+                print(
+                    f"DeviceMesh does not support all-to-all collective operations on {self._backend} backend."
+                )
+                raise e
         return work

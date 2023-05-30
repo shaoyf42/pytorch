@@ -198,9 +198,13 @@ class Backend:
     @classmethod
     def get_default_backend_for_device(cls, device: str):
         if device not in Backend._default_backend_for_device:
-            raise RuntimeError(f"Default backend not set for device type {device}, please set a default using \
-                            set_default_backend_for_device")
+            raise RuntimeError(f"Default backend not set for device type {device}, "
+                               f"please use `init_process_group` for {device} before use DeviceMesh")
         return Backend._default_backend_for_device[device]
+
+    @classmethod
+    def set_default_backend_for_device(cls, device: str, backend: str):
+        Backend._default_backend_for_device[device] = backend
 
     @classmethod
     def register_backend(cls, name, func, extended_api=False, devices: Optional[Union[str, List[str]]] = None):
@@ -256,6 +260,10 @@ class Backend:
             Backend.backend_capability[name.lower()] = [devices]
         else:
             Backend.backend_capability[name.lower()] = devices
+
+        for device in Backend.backend_capability[name.lower()]:
+            if device not in Backend._default_backend_for_device:
+                Backend._default_backend_for_device[device] = name.lower()
 
         Backend._plugins[name.upper()] = Backend._BackendPlugin(func, extended_api)
 
@@ -1312,11 +1320,13 @@ def _new_process_group_helper(
         if len(set(backend_config.get_device_backend_map().values())) == 1:
             for device in backend_config.get_device_backend_map().keys():
                 pg._register_backend(torch.device(device), backend_type, backend_class)
+                Backend.set_default_backend_for_device(device, backend_type)
 
             # break out of outer loop to not create any more backends
             break
 
         pg._register_backend(torch.device(device), backend_type, backend_class)
+        Backend.set_default_backend_for_device(device, backend_type)
 
     # update global state
     _world.pg_map[pg] = (backend, prefix_store)

@@ -262,8 +262,7 @@ class Backend:
             Backend.backend_capability[name.lower()] = devices
 
         for device in Backend.backend_capability[name.lower()]:
-            if device not in Backend._default_backend_for_device:
-                Backend._default_backend_for_device[device] = name.lower()
+            Backend.set_default_backend_for_device(device, name.lower())
 
         Backend._plugins[name.upper()] = Backend._BackendPlugin(func, extended_api)
 
@@ -1320,13 +1319,13 @@ def _new_process_group_helper(
         if len(set(backend_config.get_device_backend_map().values())) == 1:
             for device in backend_config.get_device_backend_map().keys():
                 pg._register_backend(torch.device(device), backend_type, backend_class)
-                Backend.set_default_backend_for_device(device, backend_type)
+                Backend.set_default_backend_for_device(device, backend_str)
 
             # break out of outer loop to not create any more backends
             break
 
         pg._register_backend(torch.device(device), backend_type, backend_class)
-        Backend.set_default_backend_for_device(device, backend_type)
+        Backend.set_default_backend_for_device(device, backend_str)
 
     # update global state
     _world.pg_map[pg] = (backend, prefix_store)

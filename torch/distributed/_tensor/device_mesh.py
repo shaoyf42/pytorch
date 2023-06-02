@@ -65,7 +65,7 @@ class DeviceMesh(object):
 
     DeviceMesh can be used as a context manager.
     Args:
-        device_type (str): device type of the mesh. Currently supports: cpu, cuda.
+        device_type (str): device type of the mesh. Currently supports: cpu, cuda/cuda-like.
         mesh (ndarray): could be a multi-dimension array or an integer tensor that
             describes the layout of devices, the ids are global ids of the
             default process group.
@@ -101,6 +101,9 @@ class DeviceMesh(object):
         _init_process_groups: bool = True,
     ) -> None:
         self.device_type = device_type
+        self._device_handle = (
+            getattr(torch, device_type, None) if device_type != "cpu" else None
+        )
         self.mesh = (
             mesh.detach()
             if isinstance(mesh, torch.Tensor)
@@ -125,16 +128,16 @@ class DeviceMesh(object):
             )
 
         # TODO: if user want to pass pg_options, offer a way to do it
-        if not default_initialized and self.device_type == "cuda":
-            # automatically set the current cuda device base on num of gpu devices available in each host
+        if not default_initialized and self._device_handle:
+            # automatically set the current cuda/cuda-like device base on num of gpu devices available in each host
             # NOTE: This device selection would only work for homogeneous hardware.
-            num_gpus_per_host = torch.cuda.device_count()
-            if world_size % num_gpus_per_host != 0:
+            num_devices_per_host = self._device_handle.device_count()
+            if world_size % num_devices_per_host != 0:
                 raise RuntimeError(
                     f"DeviceMesh only support homogeneous hardware, but found "
-                    f"{world_size} ranks and {num_gpus_per_host} cuda devices!"
+                    f"{world_size} ranks and {num_devices_per_host} {self.device_type} devices!"
                 )
-            torch.cuda.set_device(get_rank() % num_gpus_per_host)
+            self._device_handle.set_device(get_rank() % num_devices_per_host)
         # TODO (xilunwu): to perform DTensor random ops, we need to ensure all ranks in mesh is initialized
         # with the same random seed. The seed to use will be the current seed on rank 0. We store this seed
         # as an attribute of device mesh for future use. However, the detail is still TBD how we gonna use
